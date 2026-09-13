@@ -1,0 +1,15 @@
+services:
+  sx-converter:
+    build: .
+    ports: ["8080:8080"]
+    environment:
+      PORT: 8080
+      STORAGE_DIR: /app/storage
+      MAX_UPLOAD_BYTES: 52428800
+      JOB_TTL_HOURS: 6
+      WORKER_POLL_MS: 500
+    volumes:
+      - sx_storage:/app/storage
+    restart: unless-stopped
+volumes:
+  sx_storage:

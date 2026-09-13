@@ -1,0 +1,2 @@
+import {spawn} from 'node:child_process';
+export function run(cmd,args=[],opts={}){return new Promise((resolve,reject)=>{const p=spawn(cmd,args,{...opts});let stdout='',stderr='';p.stdout?.on('data',d=>stdout+=d);p.stderr?.on('data',d=>stderr+=d);const timer=opts.timeout?setTimeout(()=>{p.kill('SIGKILL');reject(new Error('PROCESS_TIMEOUT'));},opts.timeout):null;p.on('error',reject);p.on('close',code=>{if(timer)clearTimeout(timer);if(code===0)resolve({stdout,stderr});else reject(Object.assign(new Error(stderr||`Exit ${code}`),{code,stdout,stderr}));});});}

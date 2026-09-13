@@ -1,0 +1,21 @@
+import express from 'express';
+import multer from 'multer';
+import path from 'node:path';
+import fs from 'node:fs/promises';
+import {config} from '../config.js';
+import {assertFormat,listFormats} from '../services/registry.js';
+import {createJob,persistUpload,getJob,updateJob} from '../services/jobs.js';
+import {validateInput} from '../security/validate.js';
+const r=express.Router();
+const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:config.maxUploadBytes}});
+const cleanBase=s=>path.basename(s).replace(/[^a-zA-Z0-9._-]+/g,'_').replace(/\.+/g,'.').slice(0,100)||'file';
+const ext={PDF:'pdf',HTML:'html',APK:'apk',ZIP:'zip',DOCX:'docx',TXT:'txt'};
+r.get('/formats',(req,res)=>res.json({formats:listFormats()}));
+r.get('/health',(req,res)=>res.json({status:'ok',service:'SX CONVERTER',time:new Date().toISOString()}));
+r.post('/upload',upload.single('file'),async(req,res)=>{try{if(!req.file)throw new Error('INVALID_FILE');const f=assertFormat(req.body.inputFormat);await validateInput(req.file.buffer,f);const base=cleanBase(path.parse(req.file.originalname).name);const job=createJob({inputFormat:f,outputFormat:assertFormat(req.body.outputFormat),originalName:req.file.originalname,base,jobDir:path.resolve(config.storageDir,'pending')});job.jobDir=path.resolve(config.storageDir,job.id);job.inputPath=await persistUpload(job.id,req.file.buffer,`${base}.${ext[f]}`);res.status(201).json({id:job.id,status:job.status});}catch(e){const status=e.code==='LIMIT_FILE_SIZE'?413:400;res.status(status).json({error:e.message==='INVALID_FILE'?'INVALID FILE':e.message==='FILE_TOO_LARGE'?'FILE TOO LARGE':'INVALID FILE'});}});
+r.post('/convert',async(req,res)=>{const {id}=req.body||{};const j=getJob(id);if(!j)return res.status(404).json({error:'PROCESSING ERROR'});if(j.status!=='QUEUED')return res.status(409).json({error:'PROCESSING ERROR'});updateJob(id,{status:'QUEUED'});res.json({id,status:'QUEUED'});});
+r.get('/conversion/:id',(req,res)=>{const j=getJob(req.params.id);if(!j)return res.status(404).json({error:'PROCESSING ERROR'});res.json({id:j.id,status:j.status,progress:j.progress,error:j.error,outputName:j.outputName,outputSize:j.outputSize,download:j.status==='COMPLETED'?`/api/download/${j.id}`:null});});
+r.get('/download/:id',async(req,res)=>{const j=getJob(req.params.id);if(!j||j.status!=='COMPLETED'||!j.outputPath)return res.status(404).json({error:'PROCESSING ERROR'});try{await fs.access(j.outputPath);res.setHeader('Content-Type',mime(j.outputName));res.setHeader('Content-Disposition',`attachment; filename*=UTF-8''${encodeURIComponent(j.outputName)}`);res.setHeader('X-Content-Type-Options','nosniff');res.sendFile(path.resolve(j.outputPath));}catch{res.status(404).json({error:'PROCESSING ERROR'});}});
+r.delete('/conversion/:id',async(req,res)=>{const j=getJob(req.params.id);if(!j)return res.status(404).json({error:'PROCESSING ERROR'});await fs.rm(j.jobDir,{recursive:true,force:true});updateJob(j.id,{status:'FAILED',error:'PROCESSING ERROR'});res.json({ok:true});});
+function mime(n){const e=path.extname(n).toLowerCase();return ({'.pdf':'application/pdf','.html':'text/html','.txt':'text/plain','.zip':'application/zip','.docx':'application/vnd.openxmlformats-officedocument.wordprocessingml.document','.apk':'application/vnd.android.package-archive'})[e]||'application/octet-stream';}
+export default r;
