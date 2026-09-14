@@ -1,5 +1,22 @@
 {
-  "name":"sx-converter","version":"1.0.0","private":true,"type":"module",
-  "scripts":{"start":"node server/src/index.js","dev":"node --watch server/src/index.js","worker":"node server/src/workers/worker.js"},
-  "dependencies":{"archiver":"^7.0.1","adm-zip":"^0.5.16","express":"^5.1.0","helmet":"^8.1.0","morgan":"^1.10.0","multer":"^2.0.2","pino":"^9.9.0","sanitize-filename":"^1.6.3","uuid":"^11.1.0"}
+  "name": "sx-converter",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server/src/index.js",
+    "worker": "node server/src/workers/worker.js"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "archiver": "^7.0.1",
+    "express": "^5.1.0",
+    "file-type": "^20.0.0",
+    "helmet": "^8.1.0",
+    "morgan": "^1.10.0",
+    "multer": "^2.0.2",
+    "pino": "^9.7.0",
+    "sanitize-filename": "^1.6.3",
+    "uuid": "^11.1.0"
+  }
 }
